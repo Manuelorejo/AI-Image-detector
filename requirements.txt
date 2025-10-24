@@ -4,3 +4,10 @@ opencv-python
 pillow
 numpy
 matplotlib
+scikit-image
+scipy
+exifread
+tqdm
+torch
+torchvision
+torchaudio
