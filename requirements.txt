@@ -1,5 +1,5 @@
 streamlit
-request
+requests
 opencv-python
 pillow
 numpy
