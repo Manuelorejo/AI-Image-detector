@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Oct 30 19:20:46 2025
+
+@author: Oreoluwa
+"""
+
 # app.py
 # Hybrid AI Image Detection System (Forensic + Sightengine)
-# Reverse image search removed
 
 import streamlit as st
 import requests
@@ -10,17 +16,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # =========================
-# CONFIG — put your real keys here
+# CONFIG — API KEYS
 # =========================
-API_USER = "169723322"   # Sightengine user
-API_SECRET = "jBz4EHra243nDi9w449kqfqr2P9GrAdF"  # Sightengine secret
+API_USER = "169723322"
+API_SECRET = "jBz4EHra243nDi9w449kqfqr2P9GrAdF"
 
 st.set_page_config(page_title="AI Image Detector (Hybrid + Forensics)", layout="centered")
 st.title("🖼️ Hybrid AI Image Detection System")
 st.write("Upload an image to check if it's AI-generated or real using local forensic analysis and the Sightengine API.")
 
 # =========================
-# Helper: Metadata extraction
+# Metadata extraction
 # =========================
 def extract_metadata(image_path):
     try:
@@ -131,9 +137,9 @@ def forensic_analyze(image_path):
     if image is None:
         raise ValueError("Cannot read image for forensic analysis.")
 
-    freq_s, spectrum = frequency_score(image)
-    noise_s, noise_map = noise_score(image)
-    comp_s, comp_map = compression_score(image)
+    freq_s, _ = frequency_score(image)
+    noise_s, _ = noise_score(image)
+    comp_s, _ = compression_score(image)
     color_s = color_corr_score(image)
 
     w_freq, w_noise, w_comp, w_color = 0.35, 0.3, 0.2, 0.15
@@ -143,16 +149,13 @@ def forensic_analyze(image_path):
     return {
         "forensic_score": forensic_score,
         "frequency": float(freq_s),
-        "spectrum_vis": spectrum,
         "noise": float(noise_s),
-        "noise_map": noise_map,
         "compression": float(comp_s),
-        "compression_map": comp_map,
         "color_corr": float(color_s)
     }
 
 # =========================
-# Streamlit UI flow
+# Streamlit UI
 # =========================
 uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
@@ -164,9 +167,7 @@ else:
 
     st.image(uploaded_file, caption="Uploaded image", use_container_width=True)
 
-    # =========================
-    # Metadata
-    # =========================
+    # --- Metadata
     st.subheader("🔎 Local Analysis — Metadata")
     metadata = extract_metadata("temp_image.png")
     if metadata:
@@ -176,51 +177,27 @@ else:
         st.warning("⚠️ No EXIF metadata found (suspicious)")
         metadata_adjustment = 10
 
-    # =========================
-    # Forensic analysis
-    # =========================
-    st.subheader("🔬 Forensic Analysis (local, explainable)")
-    with st.spinner("Running forensic checks..."):
-        forensic = forensic_analyze("temp_image.png")
+    # --- Forensic
+    #st.subheader("🔬 Forensic Analysis")
+    forensic = forensic_analyze("temp_image.png")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("🧾 Forensic Score (0..1, higher → more real-like)", f"{forensic['forensic_score']:.3f}")
-        st.metric("🌀 Frequency score", f"{forensic['frequency']:.3f}")
-        st.metric("🎧 Noise score", f"{forensic['noise']:.3f}")
-    with col2:
-        st.metric("🧩 Compression score", f"{forensic['compression']:.3f}")
-        st.metric("🌈 Color-correlation score", f"{forensic['color_corr']:.3f}")
-
-    # =========================
-    # Sightengine API
-    # =========================
-    st.subheader("🌐 Sightengine API")
+    # --- Sightengine API
+    #st.subheader("🌐 Sightengine API")
     try:
         files = {'media': open("temp_image.png", "rb")}
         data = {'models': 'genai', 'api_user': API_USER, 'api_secret': API_SECRET}
         resp = requests.post("https://api.sightengine.com/1.0/check.json", files=files, data=data, timeout=30)
         api_result = resp.json()
-        #st.json(api_result)
     except Exception as e:
         st.error(f"Sightengine API error: {e}")
         api_result = {}
 
     api_ai_score = api_result.get("type", {}).get("ai_generated", 0.0) * 100.0 if api_result.get("status") == "success" else 0.0
 
-    real_pct = max(0.0, 100.0 - api_ai_score)
-    figp, axp = plt.subplots()
-    axp.pie([api_ai_score, real_pct], labels=["AI-generated", "Real"], autopct="%1.1f%%", colors=["#ff9999", "#99ff99"])
-    axp.set_title("Sightengine API confidence")
-    st.pyplot(figp)
-
-    # =========================
-    # Final Hybrid Decision
-    # =========================
+    # --- Final decision
     forensic_score = forensic['forensic_score']
     forensic_ai_pct = (1.0 - forensic_score) * 100.0
-
-    api_w, local_w = 0.7, 0.3  # adjusted weights
+    api_w, local_w = 0.7, 0.3
     local_component = forensic_ai_pct + metadata_adjustment
 
     final_ai_score = (api_ai_score * api_w) + (local_component * local_w)
@@ -235,14 +212,83 @@ else:
     else:
         st.success("✅ This image is likely real.")
 
-    # =========================
-    # Explanation
-    # =========================
+    # --- Contribution Visualization
+    # --- Contribution Visualization (Interactive)
+   
+    
+    # --- Pie Chart (Interactive)
+        # --- Interactive Pie & Donut Charts (Improved)
+    import plotly.graph_objects as go
+    import plotly.express as px
+    
     st.markdown("---")
-    st.subheader("🧩 Decision Explanation")
-    expl = []
-    expl.append(f"- **Sightengine (70%)**: API returned {api_ai_score:.1f}% AI likelihood.")
-    expl.append(f"- **Forensic local (30%)**: forensic AI-likelihood = {forensic_ai_pct:.1f}% (score={forensic_score:.3f}).")
-    expl.append(f"- **Metadata**: {'No EXIF metadata found (suspicious)' if metadata_adjustment>0 else 'EXIF metadata present (authentic)'} (penalty {metadata_adjustment}%)")
-    st.markdown("\n".join(expl))
-    st.info("This system fuses local forensics (frequency, noise, compression, color) and Sightengine API for a balanced AI-detection score.")
+    st.subheader("🧠 Contribution Breakdown")
+    
+    metrics = ["Sightengine", "Frequency", "Noise", "Compression", "Color", "Metadata"]
+    scores = [
+        api_ai_score,
+        (1 - forensic["frequency"]) * 100,
+        (1 - forensic["noise"]) * 100,
+        (1 - forensic["compression"]) * 100,
+        (1 - forensic["color_corr"]) * 100,
+        metadata_adjustment
+    ]
+    
+   
+    
+    # --- Donut Chart with Center Label + Hover + Legend
+    donut_fig = go.Figure(
+        data=[go.Pie(
+            labels=metrics,
+            values=scores,
+            hole=0.55,
+            textinfo="label+percent",
+            textposition="outside",
+            hovertemplate="<b>%{label}</b><br>Contribution: %{percent}<br>Score: %{value:.2f}%<extra></extra>",
+            marker=dict(colors=px.colors.qualitative.Pastel)
+        )]
+    )
+    
+    donut_fig.update_traces(
+        pull=[0.02] * len(metrics),  # slight separation for clarity
+        textfont=dict(size=13, color="black")
+    )
+    
+    donut_fig.update_layout(
+        title=dict(
+            text="🍩 Donut Chart — Weighted Metric Contributions",
+            x=0.5,
+            xanchor="center"
+        ),
+        annotations=[dict(
+            text=f"{final_ai_score:.1f}%",
+            x=0.5, y=0.5,
+            font=dict(color="black", family="Arial Black", size=26),
+            showarrow=False
+        )],
+        legend=dict(
+            title="Metrics",
+            orientation="v",
+            x=1.1,
+            y=0.95,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="gray",
+            borderwidth=1
+        ),
+        height=600,  # bigger chart height
+        margin=dict(t=80, b=50, l=50, r=150),
+    )
+    
+    st.plotly_chart(donut_fig, use_container_width=True)
+
+
+
+
+    # --- Explanation
+    st.markdown("---")
+    st.subheader("🧩 Explanation")
+    st.markdown(f"""
+    - **Sightengine (70%)** → {api_ai_score:.1f}% AI likelihood.  
+    - **Forensic local (30%)** → AI-likelihood {forensic_ai_pct:.1f}% (score = {forensic_score:.3f}).  
+    - **Metadata** → {'No EXIF metadata found (suspicious)' if metadata_adjustment>0 else 'EXIF present (authentic)'}.  
+    """)
